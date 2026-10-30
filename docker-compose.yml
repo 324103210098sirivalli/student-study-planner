@@ -1,0 +1,28 @@
+services:
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes: ["mongo-data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb://mongodb:27017/student_study_planner
+      JWT_SECRET: local-compose-secret-change-for-real-deployment
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports: ["5000:5000"]
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on: [backend]
+    ports: ["8080:80"]
+volumes:
+  mongo-data:
