@@ -1,14 +1,63 @@
-stage('Deploy to Kubernetes') {
-    when {
-        expression {
-            return params.DEPLOY_TO_K8S == true
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Check Java') {
+            steps {
+                bat 'java -version'
+                bat 'javac -version'
+            }
+        }
+
+        stage('Check Maven') {
+            steps {
+                bat 'mvn -version'
+            }
+        }
+
+        stage('Build and Test Java API') {
+            steps {
+                dir('backend') {
+                    bat 'mvn -B clean test package'
+                }
+            }
+        }
+
+        stage('Build React Frontend') {
+            steps {
+                dir('frontend') {
+                    bat 'npm install'
+                    bat 'npm run build'
+                }
+            }
+        }
+
+        stage('Verify Docker') {
+            steps {
+                bat 'docker --version'
+            }
         }
     }
-    steps {
-        bat 'kubectl apply -f k8s/'
 
-        bat "kubectl set image deployment/backend backend=%DOCKERHUB_CREDENTIALS_USR%/student-study-planner-backend:%BUILD_NUMBER% -n study-planner"
+    post {
+        always {
+            archiveArtifacts artifacts: 'backend/target/*.jar,frontend/dist/**',
+                allowEmptyArchive: true
+        }
 
-        bat "kubectl set image deployment/frontend frontend=%DOCKERHUB_CREDENTIALS_USR%/student-study-planner-frontend:%BUILD_NUMBER% -n study-planner"
+        success {
+            echo 'Student Study Planner CI build completed successfully!'
+        }
+
+        failure {
+            echo 'Build failed. Check Console Output for details.'
+        }
     }
 }
